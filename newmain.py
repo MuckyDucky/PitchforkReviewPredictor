@@ -17,6 +17,7 @@ import plotly.graph_objs as go
 from plotly.offline import iplot, init_notebook_mode
 #%matplotlib inline
 import os
+import re
 init_notebook_mode()
 
 
@@ -30,8 +31,8 @@ stWords = stopwords.words('english')
 
 def cleanme(txt):
     sent = txt.lower()
+    sent = re.sub('[^A-Za-z ]', '', sent)
     wrds = word_tokenize(sent)
-    #wrds = 'blah'
     clwrds = [w for w in wrds if not w in stWords]
     ln = len(clwrds)
     pos = pd.DataFrame(pos_tag(wrds))
@@ -39,16 +40,24 @@ def cleanme(txt):
     rt = [ln, " ".join(clwrds), pos]
     return rt
 
-limit = 5000
+limit = 100
+newlimit = limit
 
 tmp = list()
 for i in range(limit):
-	if type(reviews.iloc[i]['review']) == str:
-		print(round((i/limit)*100,2),'%')
-		#tmp.append(cleanme(reviews.iloc[i]['review']))
-		listtoappend=cleanme(reviews.iloc[i]['review'])
-		listtoappend.append(round(reviews.iloc[i]['score']))
-		tmp.append(listtoappend)
+    try:
+        if type(reviews.iloc[i]['review']) == str:
+            percentage = round((i/limit)*100,2)
+            if percentage%1 == 0:
+                print(percentage,'%')
+            #tmp.append(cleanme(reviews.iloc[i]['review']))
+            listtoappend=cleanme(reviews.iloc[i]['review'])
+            listtoappend.append(round(reviews.iloc[i]['score']))
+            tmp.append(listtoappend)
+    except:
+        print('error at review', reviews.iloc[i]['review'])
+        newlimit -=1
+
 
 	# if type(tmp.append(len(reviews.iloc[i]['review']))) != str:
 	# 	print(i)
@@ -80,10 +89,10 @@ print("Review Length to Rating Correlation:",reviews.reviewlen.corr(reviews.scor
 
 #Setting up the X and Y data, where X is the review text and Y is the rating
 #Three different inputs will be used: original review text, cleaned review text, and only adjectives review text
-x1 = reviews.review[:limit]
-x2 = reviews.cleanrev[:limit]
-x3 = reviews.adjreview[:limit]
-y = reviews.intscore[:limit]
+x1 = reviews.review[:newlimit]
+x2 = reviews.cleanrev[:newlimit]
+x3 = reviews.adjreview[:newlimit]
+y = reviews.intscore[:newlimit]
 
 
 #Creating a vectorizer to split the text into unigrams and bigrams
