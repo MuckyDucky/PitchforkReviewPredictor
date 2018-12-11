@@ -6,7 +6,12 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import MultinomialNB, GaussianNB
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.dummy import DummyClassifier
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from mlxtend.plotting import plot_confusion_matrix
+
 import pandas as pd
 import numpy as np
 from IPython.display import display
@@ -15,7 +20,7 @@ import itertools
 import plotly
 import plotly.graph_objs as go
 from plotly.offline import iplot, init_notebook_mode
-#%matplotlib inline
+
 import os
 import re
 init_notebook_mode()
@@ -31,14 +36,14 @@ stWords = stopwords.words('english')
 
 def cleanme(txt):
     sent = txt.lower()
-    sent = re.sub('[^A-Za-z ]', '', sent)
+    #sent = re.sub('[^A-Za-z ]', '', sent)
     wrds = word_tokenize(sent)
     clwrds = [w for w in wrds if not w in stWords]
     ln = len(clwrds)
     rt = [ln, " ".join(clwrds)]
     return rt
 
-limit = 10000
+limit = 11000
 print('processing reviews number of: ', limit)
 newlimit = limit
 
@@ -50,8 +55,21 @@ for i in range(limit):
             print(percentage,'%')
         #tmp.append(cleanme(reviews.iloc[i]['review']))
         listtoappend=cleanme(reviews.iloc[i]['review'])
-        rounded_review_sc = round(reviews.iloc[i]['score'])
-        listtoappend.append(rounded_review_sc)
+        score = reviews.iloc[i]['score']
+        label = ""
+        if score >= 8.0:
+            label="great"
+        elif 8.0 > score >= 6.0:
+            label="good"
+        elif 6.0> score >= 5.0:
+            label="so-so"
+        else:
+            label="bad"
+
+        #rounded_review_sc = round(score)
+        #listtoappend.append(rounded_review_sc)
+        listtoappend.append(score)
+        listtoappend.append(label)
         tmp.append(listtoappend)
     else:
         print('error in i:' , i)
@@ -64,7 +82,7 @@ for i in range(limit):
 	# 	print(i)
 	#tmp.append(len(reviews.iloc[i]['review']))
 tmp = pd.DataFrame(tmp)
-tmp.columns = ['reviewlen', 'cleanrev','intscore']
+tmp.columns = ['reviewlen', 'cleanrev','intscore','label']
 
 #Add calculated columns back to the dataset
 reviews = reviews.reset_index()
@@ -93,7 +111,8 @@ print("Review Length to Rating Correlation:",reviews.reviewlen.corr(reviews.scor
 x1 = reviews.review[:limit]
 x2 = reviews.cleanrev[:limit]
 #x3 = reviews.adjreview[:newlimit]
-y = reviews.intscore[:limit]
+#y = reviews.intscore[:limit]
+y=reviews.label[:limit]
 
 
 #Creating a vectorizer to split the text into unigrams and bigrams
@@ -105,41 +124,62 @@ x_vect2 = vect.fit_transform(x2.astype('U'))
 
 #Making some simple functions for linear svc, knn, and naive bayes
 def linsvc(x,y):
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state = 10)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.10, random_state = 10)
     classf = LinearSVC()
+    #classf=RandomForestClassifier()
     classf.fit(x_train, y_train)
     pred = classf.predict(x_test)
     print("Linear SVC:",accuracy_score(y_test, pred))
     return(y_test, pred)
 
-def revknn(x,y):
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state = 10)
-    classf = KNeighborsClassifier(n_neighbors=2)
-    classf.fit(x_train, y_train)
-    pred = classf.predict(x_test)
-    print("kNN:",accuracy_score(y_test, pred))
-    return(y_test, pred)
+# def revknn(x,y):
+#     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state = 10)
+#     classf = KNeighborsClassifier(n_neighbors=2)
+#     classf.fit(x_train, y_train)
+#     pred = classf.predict(x_test)
+#     print("kNN:",accuracy_score(y_test, pred))
+#     return(y_test, pred)
 
 def revnb(x,y):
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state = 10)
-    classf = MultinomialNB()
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.10, random_state = 10)
+    classf = AdaBoostClassifier()
+    #classf=MLPClassifier()
     classf.fit(x_train, y_train)
     pred = classf.predict(x_test)
     print("Naive Bayes:",accuracy_score(y_test, pred))
     return(y_test, pred)
 
+def revdummy(x,y):
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.10, random_state = 10)
+    #classf = GaussianNB()
+    classf=DummyClassifier()
+    classf.fit(x_train, y_train)
+    pred = classf.predict(x_test)
+    print("Dummy:",accuracy_score(y_test, pred))
+    return(y_test, pred)
+
+# def revnb(x,y):
+#     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state = 10)
+#     classf =
+#     classf.fit(x_train, y_train)
+#     pred = classf.predict(x_test)
+#     print("Naive Bayes:",accuracy_score(y_test, pred))
+#     return(y_test, pred)
 
 svmy1,svmp1 = linsvc(x_vect1,y)
 svmy2,svmp2 = linsvc(x_vect2,y)
 #svmy3,svmp3 = linsvc(x_vect3,y)
 
-knny1,knnp1 = revknn(x_vect1,y)
-knny2,knnp2 = revknn(x_vect2,y)
+# knny1,knnp1 = revknn(x_vect1,y)
+# knny2,knnp2 = revknn(x_vect2,y)
 #knny3,knnp3 = revknn(x_vect3,y)
 
 nby1,nbp1 = revnb(x_vect1,y)
 nby2,nbp2 = revnb(x_vect2,y)
 #nby3,nbp3 = revnb(x_vect3,y)
+
+dummy1,dummp1 = revdummy(x_vect1,y)
+dummy2,dummp2 = revdummy(x_vect1,y)
 
 
 #This function will plot a confusion matrix and is taken from the sklearn documentation with just some minor tweaks
@@ -178,11 +218,15 @@ def plot_confusion_matrix(cm, classes,
 
 c1 = confusion_matrix(svmy1,svmp1)
 c2 = confusion_matrix(svmy2,svmp2)
-c3 = confusion_matrix(nby2,nbp2)
-class_names = ['1', '2', '3', '4', '5','6','7','8','9','10']
+c3 = confusion_matrix(nby1,nbp1)
+#class_names = ['1', '2', '3', '4', '5','6','7','8','9','10']
+class_names = ['bad','so-so','good','great']
 plt.figure()
 plot_confusion_matrix(c1, classes=class_names,normalize=False,title='Confusion matrix - SVM Full Review')
+plt.show()
 plt.figure()
-plot_confusion_matrix(c2, classes=class_names,normalize=False,title='Confusion matrix - SVM No Stopwords')
+plot_confusion_matrix(c2, classes=class_names,normalize=False,title='Confusion matrix - SVM without those')
+plt.show()
 plt.figure()
-plot_confusion_matrix(c3, classes=class_names,normalize=False,title='Confusion matrix - NB No Stopwords')
+plot_confusion_matrix(c3, classes=class_names,normalize=False,title='Confusion matrix - NB Full Review')
+plt.show()
