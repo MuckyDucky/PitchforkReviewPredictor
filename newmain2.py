@@ -40,7 +40,9 @@ def cleanme(txt):
     wrds = word_tokenize(sent)
     clwrds = [w for w in wrds if not w in stWords]
     ln = len(clwrds)
-    rt = [ln, " ".join(clwrds)]
+    pos = pd.DataFrame(pos_tag(wrds))
+    pos = " ".join(list(pos[pos[1].str.contains("JJ")].iloc[:, 0]))
+    rt = [ln, " ".join(clwrds), pos]
     return rt
 
 limit = 11000
@@ -82,26 +84,26 @@ for i in range(limit):
 	# 	print(i)
 	#tmp.append(len(reviews.iloc[i]['review']))
 tmp = pd.DataFrame(tmp)
-tmp.columns = ['reviewlen', 'cleanrev','intscore','label']
+tmp.columns = ['reviewlen', 'cleanrev','adjreview', 'score','label']
 
 #Add calculated columns back to the dataset
 reviews = reviews.reset_index()
 reviews = pd.concat([reviews,tmp], axis=1)
 print(reviews.head())
 
-plt2 = go.Histogram(x = reviews.reviewlen)
-lyt2 = go.Layout(title="Frequency of Review Length", xaxis=dict(title='Review Length', range=[0,400]), yaxis=dict(title='Frequency'))
-fig2 = go.Figure(data=[plt2], layout=lyt2)
-
-#plotly.offline.plot(fig2, filename='file.html')
-
-reviews = reviews.sort_values(by='reviewlen')
-plt3 = go.Scatter(x = reviews.reviewlen, y = reviews.intscore, mode='markers')
-lyt3 = go.Layout(title="Review Length vs. Score", xaxis=dict(title='Review Length'),yaxis=dict(title='Rating'))
-fig3 = go.Figure(data=[plt3], layout=lyt3)
-#plotly.offline.plot(fig3, filename='file.html')
-#iplot(fig3)
-print("Review Length to Rating Correlation:",reviews.reviewlen.corr(reviews.score))
+# plt2 = go.Histogram(x = reviews.reviewlen)
+# lyt2 = go.Layout(title="Frequency of Review Length", xaxis=dict(title='Review Length', range=[0,400]), yaxis=dict(title='Frequency'))
+# fig2 = go.Figure(data=[plt2], layout=lyt2)
+#
+# #plotly.offline.plot(fig2, filename='file.html')
+#
+# reviews = reviews.sort_values(by='reviewlen')
+# plt3 = go.Scatter(x = reviews.reviewlen, y = reviews.intscore, mode='markers')
+# lyt3 = go.Layout(title="Review Length vs. Score", xaxis=dict(title='Review Length'),yaxis=dict(title='Rating'))
+# fig3 = go.Figure(data=[plt3], layout=lyt3)
+# #plotly.offline.plot(fig3, filename='file.html')
+# #iplot(fig3)
+# print("Review Length to Rating Correlation:",reviews.reviewlen.corr(reviews.score))
 
 #iplot(fig2)
 
@@ -110,7 +112,7 @@ print("Review Length to Rating Correlation:",reviews.reviewlen.corr(reviews.scor
 #Three different inputs will be used: original review text, cleaned review text, and only adjectives review text
 x1 = reviews.review[:limit]
 x2 = reviews.cleanrev[:limit]
-#x3 = reviews.adjreview[:newlimit]
+x3 = reviews.adjreview[:newlimit]
 #y = reviews.intscore[:limit]
 y=reviews.label[:limit]
 
@@ -119,7 +121,7 @@ y=reviews.label[:limit]
 vect = TfidfVectorizer(ngram_range = (1,2),min_df=0.2)
 x_vect1 = vect.fit_transform(x1.astype('U'))
 x_vect2 = vect.fit_transform(x2.astype('U'))
-#x_vect3 = vect.fit_transform(x3.astype('U'))
+x_vect3 = vect.fit_transform(x3.astype('U'))
 
 
 #Making some simple functions for linear svc, knn, and naive bayes
@@ -168,18 +170,19 @@ def revdummy(x,y):
 
 svmy1,svmp1 = linsvc(x_vect1,y)
 svmy2,svmp2 = linsvc(x_vect2,y)
-#svmy3,svmp3 = linsvc(x_vect3,y)
+svmy3,svmp3 = linsvc(x_vect3,y)
 
 # knny1,knnp1 = revknn(x_vect1,y)
 # knny2,knnp2 = revknn(x_vect2,y)
 #knny3,knnp3 = revknn(x_vect3,y)
 
-nby1,nbp1 = revnb(x_vect1,y)
-nby2,nbp2 = revnb(x_vect2,y)
-#nby3,nbp3 = revnb(x_vect3,y)
-
-dummy1,dummp1 = revdummy(x_vect1,y)
-dummy2,dummp2 = revdummy(x_vect1,y)
+# nby1,nbp1 = revnb(x_vect1,y)
+# nby2,nbp2 = revnb(x_vect2,y)
+# nby3,nbp3 = revnb(x_vect3,y)
+#
+# dummy1,dummp1 = revdummy(x_vect1,y)
+# dummy2,dummp2 = revdummy(x_vect2,y)
+# dummy3,dummp3 = revdummy(x_vect3,y)
 
 
 #This function will plot a confusion matrix and is taken from the sklearn documentation with just some minor tweaks
@@ -218,15 +221,15 @@ def plot_confusion_matrix(cm, classes,
 
 c1 = confusion_matrix(svmy1,svmp1)
 c2 = confusion_matrix(svmy2,svmp2)
-c3 = confusion_matrix(nby1,nbp1)
+c3 = confusion_matrix(svmy3,svmy3)
 #class_names = ['1', '2', '3', '4', '5','6','7','8','9','10']
-class_names = ['bad','so-so','good','great']
+class_names = ['great','good','so-so','bad']
 plt.figure()
-plot_confusion_matrix(c1, classes=class_names,normalize=False,title='Confusion matrix - SVM Full Review')
+plot_confusion_matrix(c1, classes=class_names,normalize=True,title='Confusion matrix - SVM Full Review')
 plt.show()
 plt.figure()
-plot_confusion_matrix(c2, classes=class_names,normalize=False,title='Confusion matrix - SVM without those')
+plot_confusion_matrix(c2, classes=class_names,normalize=True,title='Confusion matrix - SVM without those')
 plt.show()
 plt.figure()
-plot_confusion_matrix(c3, classes=class_names,normalize=False,title='Confusion matrix - NB Full Review')
+plot_confusion_matrix(c3, classes=class_names,normalize=True,title='Confusion matrix - SVM without those w adj')
 plt.show()
